@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+python-jose[cryptography]   # For JWT
+passlib[bcrypt]             # For password hashing
+python-multipart            # For file uploads
+pillow                      # Image processing
+google-cloud-storage        # GCS
+python-kafka                # Kafka client
+redis                       # For rate limiting and caching
+SQLAlchemy
