@@ -16,7 +16,7 @@ class ImageDB(Base):
     __tablename__ = "images"
 
     id = Column(String, primary_key = True, index = True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
     filename = Column(String, nullable = False)
     storage_url = Column(String, nullable = False)
     mimetype = Column(String)
