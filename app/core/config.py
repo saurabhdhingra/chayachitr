@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 # 1 day expiration
     
-    # Storage Settings (Local Mock for GCS)
-    STORAGE_PATH: str = "images_store"
+    # Storage Settings 
+    GCS_BUCKET_NAME: str = Field("image-processor-bucket", env="GCS_BUCKET_NAME")
     
     # Kafka Settings
     # NOTE: Set KAFKA_BOOTSTRAP_SERVERS to a running Kafka instance for async processing

@@ -9,3 +9,4 @@ google-cloud-storage        # GCS
 python-kafka                # Kafka client
 redis                       # For rate limiting and caching
 SQLAlchemy
+google-cloud-storage        # Google Cloud Storage
