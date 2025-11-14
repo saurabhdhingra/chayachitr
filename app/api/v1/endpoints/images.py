@@ -11,15 +11,16 @@ from app.application.services.image_service import ImageService
 from app.infrastructure.persistence.image_repository import ImageRepository
 from app.infrastructure.adapters.google_cloud_storage_adapter import GoogleCloudStorageService 
 from app.infrastructure.adapters.message_queue import KafkaProducerAdapter
+from app.infrastructure.adapters.redis_adapter import RedisAdapter # NEW Import
 
 router = APIRouter()
 
-# Dependency Injection for ImageService
 def get_image_service(db: Session = Depends(get_db)):
     repo = ImageRepository(db)
     storage = GoogleCloudStorageService() 
     producer = KafkaProducerAdapter()
-    return ImageService(repo, storage, producer)
+    redis_adapter = RedisAdapter() 
+    return ImageService(repo, storage, producer, redis_adapter)
 
 
 @router.post("/", response_model=Image, status_code=status.HTTP_201_CREATED)
@@ -65,16 +66,13 @@ def retrieve_image(
     Returns a 307 Redirect to a time-limited GCS Signed URL for direct download.
     """
     try:
-        # get_image_url now returns the GCS Signed URL
         signed_url = image_service.get_image_url(image_id, current_user.id)
-        
-        # Use RedirectResponse to send the client directly to the GCS resource
         return RedirectResponse(url=signed_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
     except ImageNotFoundError:
         raise ImageNotFoundError()
     except Exception as e:
         print(f"Error retrieving signed URL: {e}")
-        raise status.HTTP_500_INTERNAL_SERVER_ERROR(detail="Could not generate external image URL.")
+        raise status.HTTP_500_INTERNAL_SERVER_ERROR(detail="Could not generate external image URL due to internal error.")
 
 
 @router.get("/", response_model=List[Image])

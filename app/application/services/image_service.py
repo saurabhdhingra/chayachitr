@@ -2,19 +2,22 @@ from typing import List, Dict, Any
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 from app.core.exceptions import ImageNotFoundError
+from app.core.config import settings
 from app.domain.entities.image import Image, Transformation
 from app.infrastructure.persistence.image_repository import ImageRepository
 from app.infrastructure.adapters.google_cloud_storage_adapter import GoogleCloudStorageService 
 from app.infrastructure.adapters.message_queue import KafkaProducerAdapter
+from app.infrastructure.adapters.redis_adapter import RedisAdapter # NEW Import
 
-# Use the new GCS service alias for internal consistency
+
 StorageService = GoogleCloudStorageService 
 
 class ImageService:
-    def __init__(self, repo: ImageRepository, storage: StorageService, producer: KafkaProducerAdapter):
+    def __init__(self, repo: ImageRepository, storage: StorageService, producer: KafkaProducerAdapter, redis: RedisAdapter): 
         self.repo = repo
         self.storage = storage
         self.producer = producer
+        self.redis = redis # NEW
 
     async def upload_image(self, file: UploadFile, user_id: int) -> Image:
         """Uploads image to storage and saves metadata to DB."""
@@ -24,7 +27,7 @@ class ImageService:
             "id": image_id,
             "user_id": user_id,
             "filename": file.filename,
-            "storage_url": storage_url, # Now stores GCS object path (e.g., '1/uuid.jpg')
+            "storage_url": storage_url, 
             "mimetype": file.content_type,
             "size_bytes": size_bytes,
             "metadata": {"original_filename": file.filename}
@@ -74,14 +77,31 @@ class ImageService:
     def get_image_url(self, image_id: str, user_id: int) -> str:
         """
         Retrieves a time-limited signed URL for direct client access to the GCS object.
+        Implements caching for the signed URL.
         """
         image = self.repo.get_image_by_id(image_id)
         if not image or image.user_id != user_id:
             raise ImageNotFoundError()
             
+        cache_key = f"image_url:{image_id}"
+        
+        # 1. Check Redis Cache
+        cached_url = self.redis.get(cache_key)
+        if cached_url:
+            print(f"Serving signed URL for {image_id} from Redis cache.")
+            return cached_url
+            
+        # 2. Generate new Signed URL
         # The storage_url holds the GCS object path (blob name). 
-        # We use the adapter to generate the signed URL.
-        return self.storage.generate_signed_url(image.storage_url) # UPDATED usage
+        signed_url = self.storage.generate_signed_url(image.storage_url) 
+
+        # 3. Store in Redis Cache
+        # Use a TTL slightly shorter than the GCS expiration to avoid serving expired links
+        ttl = settings.IMAGE_URL_CACHE_SECONDS 
+        self.redis.set(cache_key, signed_url, ttl)
+        print(f"Generated and cached signed URL for {image_id}.")
+        
+        return signed_url
 
     def list_user_images(self, user_id: int, page: int, limit: int) -> List[Image]:
         """Lists images for a specific user."""
