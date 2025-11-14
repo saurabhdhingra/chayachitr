@@ -10,6 +10,7 @@ The architecture is designed for scalability and durability, leveraging Google C
 
 The system follows an event-driven pattern for transformations and a cache-first approach for serving content.
 
+<img width="1024" height="1024" alt="Gemini_Generated_Image_n39uqgn39uqgn39u" src="https://github.com/user-attachments/assets/0c558cdf-5ea1-4ae1-b3cb-6b795c1a99b6" />
 
 ## Architectural Components
 
