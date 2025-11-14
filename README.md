@@ -99,7 +99,7 @@ The project follows a clean Domain-Driven Design (DDD) inspired structure:
 
 ### 2. Environment Setup
 
-Create a '.env' file in the project root:
+Create a `.env` file in the project root:
 
 ```
 # Database
@@ -170,9 +170,9 @@ python worker/consumer.py
 
 ## API Endpoint Usage Examples
 
-All examples assume the API is running at 'http://localhost:8000/api/v1' and you have a valid JWT access token (omitted for brevity).
+All examples assume the API is running at `http://localhost:8000/api/v1` and you have a valid JWT access token (omitted for brevity).
 
-**1. Upload an Image (**'POST /images/'**)**
+**1. Upload an Image (**`POST /images/`**)**
 
 Uploads a file and stores it in GCS, returning the metadata.
 
@@ -197,7 +197,7 @@ curl -X POST "http://localhost:8000/api/v1/images/" \
 }
 ```
 
-**2. Request a Transformation (**'POST /images/{image_id}/transform'**)**
+**2. Request a Transformation (**`POST /images/{image_id}/transform`**)**
 
 Requests an asynchronous transformation. Returns a placeholder image entry immediately.
 
@@ -229,7 +229,7 @@ curl -X POST "http://localhost:8000/api/v1/images/${IMAGE_ID}/transform" \
 }
 ```
 
-**3. Retrieve an Image (**'GET /images/{image_id}'**)**
+**3. Retrieve an Image (**`GET /images/{image_id}`**)**
 
 Retrieves the image file. This endpoint performs a 307 Redirect to a cached GCS Signed URL.
 
@@ -242,7 +242,7 @@ curl -L -X GET "http://localhost:8000/api/v1/images/${IMAGE_ID}" \
 ```
 
 **Response (307 TEMPORARY REDIRECT):**
-The API returns a 307 status code with a 'Location' header pointing to the temporary GCS URL (e.g., 'https://storage.googleapis.com/...signed_url_parameters'). The client (browser/curl) must follow this redirect.
+The API returns a 307 status code with a `Location` header pointing to the temporary GCS URL (e.g., `https://storage.googleapis.com/...signed_url_parameters`). The client (browser/curl) must follow this redirect.
 
 ```
 HTTP/1.1 307 Temporary Redirect
