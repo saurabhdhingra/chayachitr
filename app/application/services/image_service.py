@@ -5,14 +5,15 @@ from app.core.exceptions import ImageNotFoundError
 from app.core.config import settings
 from app.domain.entities.image import Image, Transformation
 from app.infrastructure.persistence.image_repository import ImageRepository
-from app.infrastructure.adapters.google_cloud_storage_adapter import GoogleCloudStorageService 
+from app.infrastructure.adapters.storage_service import GoogleCloudStorageService 
 from app.infrastructure.adapters.message_queue import KafkaProducerAdapter
 from app.infrastructure.adapters.redis_adapter import RedisAdapter # NEW Import
 
-
+# Use the new GCS service alias for internal consistency
 StorageService = GoogleCloudStorageService 
 
 class ImageService:
+    # NEW dependency: redis
     def __init__(self, repo: ImageRepository, storage: StorageService, producer: KafkaProducerAdapter, redis: RedisAdapter): 
         self.repo = repo
         self.storage = storage
@@ -27,10 +28,10 @@ class ImageService:
             "id": image_id,
             "user_id": user_id,
             "filename": file.filename,
-            "storage_url": storage_url, 
+            "storage_url": storage_url, # Now stores GCS object path (e.g., '1/uuid.jpg')
             "mimetype": file.content_type,
             "size_bytes": size_bytes,
-            "metadata": {"original_filename": file.filename}
+            "image_metadata": {"original_filename": file.filename} # KEY RENAMED
         }
         return self.repo.create_image(image_data)
 
@@ -62,7 +63,7 @@ class ImageService:
                 "storage_url": original_image.storage_url, # Original path until processed
                 "mimetype": original_image.mimetype,
                 "size_bytes": 0,
-                "metadata": transformations.model_dump(exclude_none=True),
+                "image_metadata": transformations.model_dump(exclude_none=True), # KEY RENAMED
                 "is_transformed": False
             }
              placeholder_image = self.repo.create_image(placeholder_data)

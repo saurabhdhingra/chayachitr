@@ -1,78 +1,76 @@
-from fastapi import Request, HTTPException, status
-from starlette.middleware.base import BaseHTTPMiddleware
-import REDISfrom app.core.config import settings
+import time
+from collections import defaultdict
+from typing import Callable, Optional
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response, JSONResponse
+from starlette.types import ASGIApp
+
+# Import the function that determines the user ID (which we just created)
+from app.api.deps import get_current_user_id
+
+# --- Configuration for Rate Limiting ---
+MAX_REQUESTS = 5      # Maximum number of requests allowed
+TIME_WINDOW = 60      # Time window in seconds (5 requests per minute)
+
+# In-memory store for tracking requests. 
+# WARNING: This is volatile. For production, replace with Redis or similar.
+RATE_LIMIT_STORE = defaultdict(lambda: {"count": 0, "first_request_time": 0.0})
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
     """
-    Implements rate limiting using Redis based on the client's IP address.
+    Implements a simple, in-memory rate limiting mechanism.
+
+    It identifies the client first by authenticated user ID (if available)
+    and falls back to using the client's IP address.
     """
-
-    def __init__(self, app):
+    
+    def __init__(self, app: ASGIApp):
         super().__init__(app)
+        self.max_requests = MAX_REQUESTS
+        self.time_window = TIME_WINDOW
 
-        try: 
-            limit_str, period_str = settings.RATE_LIMIT.split('/')
-            self.limit = int(limit_str)
-
-            if period_str == 'minute':
-                self.period = 60
-            elif period_str == 'hour':
-                self.period = 3600
-            else:
-                raise ValueError(f"Unsupported rate limit period: {period_str}")
-
-        except (ValueError, IndexError):
-            print(f"FATAL: Invalid RATE_LIMIT format: {settings.RATE_LIMIT}. Rate limiting disabled.")
-            self.redis_client = None
-            return
-
-        try :
-            self.redis_client = redis.StrictRedis(
-                host = settings.REDIS_HOST, 
-                port = settings.REDIS_PORT,
-                decode_response = True
-            )
-            self.redis_client.ping()
-            print("Redis connection successful. Rate Limiting enabled.")
-        except redis.exceptions.ConnectionError as e: 
-            print(f"WARNING: Redis connection failed at {settings.REDIS_HOST}:{settings.REDIS_PORT}. Rate limiting will be disabled. Error: {e}")
-            self.redis_client = None
-
-    async def dispatch(self, request: Request, call_next):
-        """
-        Applies rate limiting using the Redis counter pattern.
-        """
-
-        if self.redis_client is None:
-            return await call_next(request)
-
-        if request.url.path.endswith("/transform") and requst.method == "POST":
-            return await call_next(request)
-
-        client_ip = request.client.host
-        key = f"rate_limit:{client_ip}"
-
-        pipe = self.redis_client.pipeline()
-        pipe.incr(key)
-        pipe.expire(key, self.period, nx = True)
-
-        try:
-            count, _ = pipe.execute()
-        expect Exception as e:
-            print(f"Redis pipeline execution failed, skipping rate limit check. Error: {e}")
-            return await call_next(request)
-
-        if count > self.limit:
-            ttl = self.redis_client.ttl(key)
-            if ttl < 0:
-                ttl = self.period
-
-            raise HTTPException(
-                status_code = status.HTTP_429_TOO_MANY_REQUESTS,
-                detail = f"Rate limit exceeded. Try again in {ttl} seconds.",
-                headers = {"Retry-After": str(ttl)}
-            )
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         
+        # 1. Determine the Client ID for rate limiting
+        
+        # Try to get the authenticated user ID (None if unauthenticated)
+        client_id: Optional[str] = await get_current_user_id(request)
+        
+        if client_id is None:
+            # Fallback to IP address if the user is not authenticated
+            # Checks for X-Forwarded-For (for use behind proxies/load balancers)
+            client_ip = request.headers.get("x-forwarded-for") or request.client.host
+            client_id = client_ip
+
+        # 2. Check and enforce the rate limit
+        
+        now = time.time()
+        record = RATE_LIMIT_STORE[client_id]
+
+        # Check if the time window has passed. If so, reset the count.
+        if now - record["first_request_time"] > self.time_window:
+            record["count"] = 1
+            record["first_request_time"] = now
+        else:
+            record["count"] += 1
+
+            if record["count"] > self.max_requests:
+                # Rate limit exceeded (HTTP 429 Too Many Requests)
+                return JSONResponse(
+                    {"detail": f"Rate limit exceeded for client '{client_id}'. Try again in {self.time_window} seconds."},
+                    status_code=429,
+                )
+
+        # 3. Proceed to the next middleware or endpoint
         response = await call_next(request)
+        
+        # 4. Add Rate Limit headers for client information
+        response.headers["X-RateLimit-Limit"] = str(self.max_requests)
+        response.headers["X-RateLimit-Remaining"] = str(max(0, self.max_requests - record["count"]))
+        
+        # Calculate when the window resets
+        reset_time = int(record["first_request_time"] + self.time_window)
+        response.headers["X-RateLimit-Reset"] = str(reset_time)
+        
         return response
-     

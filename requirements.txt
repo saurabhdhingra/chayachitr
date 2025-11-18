@@ -1,12 +1,15 @@
 fastapi
 uvicorn
 pydantic
+pydantic-settings
 python-jose[cryptography]   # For JWT
-passlib[bcrypt]             # For password hashing
+passlib
+bcrypt==4.0.0               # For password hashing
 python-multipart            # For file uploads
 pillow                      # Image processing
 google-cloud-storage        # GCS
-python-kafka                # Kafka client
+kafka-python                # Kafka client
 redis                       # For rate limiting and caching
 SQLAlchemy
+psycopg2-binary 
 google-cloud-storage        # Google Cloud Storage

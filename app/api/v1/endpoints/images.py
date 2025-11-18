@@ -9,7 +9,7 @@ from app.domain.entities.image import Image, Transformation
 from app.domain.entities.user import User
 from app.application.services.image_service import ImageService
 from app.infrastructure.persistence.image_repository import ImageRepository
-from app.infrastructure.adapters.google_cloud_storage_adapter import GoogleCloudStorageService 
+from app.infrastructure.adapters.storage_service import GoogleCloudStorageService 
 from app.infrastructure.adapters.message_queue import KafkaProducerAdapter
 from app.infrastructure.adapters.redis_adapter import RedisAdapter # NEW Import
 

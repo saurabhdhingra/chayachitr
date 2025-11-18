@@ -9,7 +9,7 @@ class KafkaProducerAdapter:
     def __init__(self):
         try:
             self.producer = KafkaProducer(
-                bootstrap_servers = settings.KAFKA_BOOTSRAP_SERVERS.split('.'),
+                bootstrap_servers = settings.KAFKA_TRANSFORMATION_TOPIC.split('.'),
                 value_serializer = lambda v : json.dumps(v).encode('utf-8'),
                 api_version = (0, 10, 1),
                 retries = 3
